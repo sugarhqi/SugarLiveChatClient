@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title></title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+
+    <script src="https://code.jquery.com/jquery-3.1.0.min.js"></script>
+    <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.js"></script>
+    <script src="https://cdn.datatables.net/1.10.13/js/jquery.dataTables.min.js"></script>
+    <script src="js/amazon-connect-chat-interface.js"></script>
+    <style>
+    .chat-button {
+      background-image: url("image/chat-button.svg");
+      border: none;
+      cursor: pointer;
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      width: 40px;
+      height: 40px;
+    }
+    .chat-window {
+      position: fixed;
+      right: 20px;
+      bottom: 20px;
+      width: 300px;
+      height: 300px;
+    }
+    </style>
+</head>
+<body>
+    <style>
+    </style>
+
+    <div class="chat-window" style="display:none">
+        <section class="section-main" id="section-main" style="position: absolute; float: left;">
+            <header>
+                <h1>SugarLive Self-service Chat</h1>
+            </header>
+
+            <form name="contactDetails" id="contactDetails" style="padding-top: 30px">
+                <fieldset>
+                    <div>
+                        <table>
+                            <tbody>
+                                <tr>
+                                    <td>
+                                        <label for="username"
+                                            style="width: 128px; padding-right: 25px; padding-bottom: 10px;">Username:</label>
+                                    </td>
+                                    <td>
+                                        <input name="username" type="text" id="username" placeholder="Username"
+                                            style="width:161px;">
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td>
+                                        <label for="password"
+                                            style="width: 128px; padding-right: 25px; padding-bottom: 10px;">Password:</label>
+                                    </td>
+                                    <td>
+                                        <input name="passwoerd" type="text" id="password" placeholder="Password"
+                                            style="width:161px;">
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td colspan="2" text-align="center">
+                                        <input type="submit" id="login"
+                                            value="Login to Chat"></input>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td colspan="2" text-align="center">
+                                        <input type="submit" id="guest"
+                                            value="Chat as Guest"></input>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td colspan="2" text-align="center">
+                                        <input type="submit" id="close"
+                                            value="Close"></input>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </fieldset>
+            </form>
+        </section>
+        <section class="section-chat" id="section-chat" style="display: none; float: right;">
+            <div id="root"></div>
+        </section>
+    </div>
+    <button class="chat-button" onclick="openChatWindow()"/>
+
+    <script>
+        $(document).ready((a) => {
+            $("form input[type=submit]").click(function() {
+                $("input[type=submit]", $(this).parents("form")).removeAttr("clicked");
+                $(this).attr("clicked", "true");
+            });
+            connect.ChatInterface.init({
+                containerId: 'root' // This is the id of the container where you want the widget to reside
+            });
+        });
+
+        $(function () {
+            $('#contactDetails').submit(function (e) {
+                e.preventDefault();
+                var buttonName = $("input[type=submit][clicked=true]").val();
+                if (buttonName == 'Close') {
+                    closeChatWindow();
+                } else if (buttonName == 'Chat as Guest') {
+                    // TODO
+                } else if (buttonName == 'Login to Chat') {
+	                var username = $('#username').val();
+	                var password = $('#password').val();
+	
+	                if (!username || !password) {
+	                    alert('you must enter a username & password');
+	                    document.getElementById("contactDetails").reset();
+	                } else {
+	                    // TODO: login
+	                    var contactFlowId = ""; // TODO: Fill in
+	                    var instanceId = ""; // TODO: Fill in
+	                    var apiGatewayEndpoint = ""; // TODO: Fill in with the API Gateway endpoint created by your CloudFormation template
+	                    var enableAttachments = false // TODO: Fill in if you want to enable attachments on Amazon Connect chat widget (PRE-REQUISITE: Enable Amazon Connect instance for attachments)
+	                    console.log("this is the first name:" + customerName);
+	                    document.getElementById("contactDetails").reset();
+	
+	                    connect.ChatInterface.initiateChat({
+	                        name: customerName,
+	                        region: "", // TODO: Fill in
+	                        apiGatewayEndpoint: apiGatewayEndpoint,
+	                        contactAttributes: JSON.stringify({
+	                            "customerName": customerName
+	                        }),
+	                        contactFlowId: contactFlowId,
+	                        instanceId: instanceId,
+	                        featurePermissions: {
+	                            "ATTACHMENTS": enableAttachments,  // this is the override flag from user for attachments
+	                        }
+	                    },successHandler, failureHandler);
+	
+	                }
+                }
+            });
+        });
+
+        function successHandler(chatSession) {
+            console.log("success!");
+            $('#section-chat').fadeIn(400);
+
+            chatSession.onChatDisconnected(function(data) {
+                $('#section-chat').hide('slide');
+            });
+        }
+
+        function failureHandler(error) {
+            console.log("There was an error: ");
+            console.log(error);
+        }
+
+        function openChatWindow() {
+            $('.chat-window').show();
+            $('.chat-button').hide();
+        }
+        
+        function closeChatWindow() {
+            $('.chat-window').hide();
+            $('.chat-button').show();
+        }
+    </script>
+
+</body>
