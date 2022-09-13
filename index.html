@@ -9,7 +9,10 @@
     <script src="https://code.jquery.com/jquery-3.1.0.min.js"></script>
     <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.js"></script>
     <script src="https://cdn.datatables.net/1.10.13/js/jquery.dataTables.min.js"></script>
+    <script src="js/amazon-connect-streams-1.6.9.js"></script>
+    <script src="js/amazon-connect-chat.js"></script>
     <script src="js/amazon-connect-chat-interface.js"></script>
+
     <style>
     .chat-button {
       background-image: url("image/chat-button.svg");
@@ -25,8 +28,19 @@
       position: fixed;
       right: 20px;
       bottom: 20px;
-      width: 300px;
-      height: 300px;
+      width: 348px;
+      height: 488px;
+      border: solid 1px lightblue;
+      border-radius: 10px;
+      
+    }
+    h1 {
+      text-align: center;
+      border-bottom: solid 1px lightblue;
+      padding-bottom: 10px;
+    }
+    fieldset {
+      border: 0;
     }
     </style>
 </head>
@@ -45,6 +59,11 @@
                     <div>
                         <table>
                             <tbody>
+                                <tr>
+                                    <td colspan="2" text-align="center">
+                                        <span id="error"></span>
+                                    </td>
+                                </tr>
                                 <tr>
                                     <td>
                                         <label for="username"
@@ -96,6 +115,7 @@
     <button class="chat-button" onclick="openChatWindow()"/>
 
     <script>
+        var sugarUrl = 'http://localhost/ult/sugarcrm'; //'https://dqeqk-12-2-0-ent.msqa.sugarcrm.com';
         $(document).ready((a) => {
             $("form input[type=submit]").click(function() {
                 $("input[type=submit]", $(this).parents("form")).removeAttr("clicked");
@@ -115,46 +135,92 @@
                 } else if (buttonName == 'Chat as Guest') {
                     // TODO
                 } else if (buttonName == 'Login to Chat') {
-	                var username = $('#username').val();
-	                var password = $('#password').val();
-	
-	                if (!username || !password) {
-	                    alert('you must enter a username & password');
-	                    document.getElementById("contactDetails").reset();
-	                } else {
-	                    // TODO: login
-	                    var contactFlowId = ""; // TODO: Fill in
-	                    var instanceId = ""; // TODO: Fill in
-	                    var apiGatewayEndpoint = ""; // TODO: Fill in with the API Gateway endpoint created by your CloudFormation template
-	                    var enableAttachments = false // TODO: Fill in if you want to enable attachments on Amazon Connect chat widget (PRE-REQUISITE: Enable Amazon Connect instance for attachments)
-	                    console.log("this is the first name:" + customerName);
-	                    document.getElementById("contactDetails").reset();
-	
-	                    connect.ChatInterface.initiateChat({
-	                        name: customerName,
-	                        region: "", // TODO: Fill in
-	                        apiGatewayEndpoint: apiGatewayEndpoint,
-	                        contactAttributes: JSON.stringify({
-	                            "customerName": customerName
-	                        }),
-	                        contactFlowId: contactFlowId,
-	                        instanceId: instanceId,
-	                        featurePermissions: {
-	                            "ATTACHMENTS": enableAttachments,  // this is the override flag from user for attachments
-	                        }
-	                    },successHandler, failureHandler);
-	
-	                }
+                    var username = $('#username').val();
+                    var password = $('#password').val();
+
+                    if (!username || !password) {
+                        showError('you must enter a username & password');
+                        document.getElementById("contactDetails").reset();
+                    } else {
+                        var data = {
+                            "client_id": "support_portal",
+                            "client_info": {
+                                "current_language": "en_us"
+                            },
+                            "client_secret": "",
+                            "current_language": "en_us",
+                            "grant_type": "password",
+                            "platform": "portal",
+                            "password": password,
+                            "username": username
+                        };
+                        fetch(sugarUrl + '/rest/v11_18/oauth2/token', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify(data),
+                        })
+                        .then((response) => response.json())
+                        .then((data) => {
+                            if (data.access_token) {
+                                fetch(sugarUrl + '/rest/v11_18/me', {
+                                    method: 'GET',
+                                    headers: {
+                                        'Content-Type': 'application/json',
+                                        'OAuth-Token': data.access_token
+                                    }
+                                })
+                                .then((response) => response.json())
+                                .then((data) => {
+                                    var region = "eu-west-2";
+                                    var contactFlowId = "15126242-fb48-4183-b19f-93cceff66a8f"; // TODO: Fill in
+                                    var instanceId = "d6419273-f35a-415a-a390-3779ed422d13"; // TODO: Fill in
+                                    var apiGatewayEndpoint = "https://oi0q12c9ua.execute-api.eu-west-2.amazonaws.com/Prod"; // TODO: Fill in with the API Gateway endpoint created by your CloudFormation template
+                                    var enableAttachments = false // TODO: Fill in if you want to enable attachments on Amazon Connect chat widget (PRE-REQUISITE: Enable Amazon Connect instance for attachments)
+                                    document.getElementById("contactDetails").reset();
+                
+                                    connect.ChatInterface.initiateChat({
+                                        name: data.current_user.full_name,
+                                        username: data.current_user.portal_name,
+                                        contactAttributes: JSON.stringify({
+                                            sugarContactName: data.current_user.full_name,
+                                            sugarContactId: data.current_user.id,
+                                            sugarContactEmail: data.current_user.primary_email_address,
+                                            sugarAccountId: data.current_user.primary_account_id
+                                        }),
+                                        region: region,
+                                        apiGatewayEndpoint: apiGatewayEndpoint,
+                                        contactFlowId: contactFlowId,
+                                        instanceId: instanceId,
+                                        featurePermissions: {
+                                            "ATTACHMENTS": enableAttachments,  // this is the override flag from user for attachments
+                                        }
+                                    },successHandler, failureHandler);
+                                })
+                                .catch((error) => {
+                                    console.error('Error:', error);
+                                    showError(error);
+                                });
+                            }
+                        })
+                        .catch((error) => {
+                            console.error('Error:', error);
+                            showError(error);
+                        });
+                    }
                 }
             });
         });
 
         function successHandler(chatSession) {
+            $('#section-main').hide();
             console.log("success!");
             $('#section-chat').fadeIn(400);
 
             chatSession.onChatDisconnected(function(data) {
                 $('#section-chat').hide('slide');
+                closeChatWindow();
             });
         }
 
@@ -165,12 +231,18 @@
 
         function openChatWindow() {
             $('.chat-window').show();
+            $('#section-main').show();
+            $('#section-chat').hide();
             $('.chat-button').hide();
         }
         
         function closeChatWindow() {
             $('.chat-window').hide();
             $('.chat-button').show();
+        }
+        
+        function showError(msg) {
+            $("#error").innerHTML(msg);
         }
     </script>
 
